@@ -3,7 +3,7 @@ mod db;
 use rand::Rng;
 use tiny_http::{Header, Method, Response, Server};
 
-use crate::db::{Data, Db, Id};
+use crate::db::{Data, DataValue, Db, Id};
 
 fn main() {
     let server = Server::http("0.0.0.0:4321").unwrap();
@@ -13,7 +13,8 @@ fn main() {
     let mut rand = rand::rng();
 
     for request in server.incoming_requests() {
-        if request.url() != "db" {
+        if !request.url().starts_with("/db") {
+            request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"go to /db pls\" }").with_status_code(400)).unwrap();
             continue;
         }
 
@@ -31,9 +32,8 @@ fn main() {
                 }
             };
 
-            let data = Data::from_string(header_data);
-
-            db.create(id, data);
+            let data_value = DataValue::from_string(header_data);
+            db.create(id, Data { value: data_value });
 
             request.respond(
                 Response::from_string("{ \"status\": \"ok\" }")
@@ -70,7 +70,7 @@ fn main() {
             };
 
             request.respond(
-                Response::from_string(format!("{{ \"status\": \"ok\", \"data\": {} }}", data))
+                Response::from_string(format!("{{ \"status\": \"ok\", \"data\": {} }}", data.value))
                     .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
                     .with_status_code(200)
             ).unwrap();
@@ -79,7 +79,7 @@ fn main() {
         }
 
         // Update.
-        if && *request.method() == Method::Patch {
+        if *request.method() == Method::Patch {
             let header_id = match headers.iter().find(|h| h.field.as_str() == "Data-Id") {
                 Some(header_id) => header_id.value.to_string(),
                 None => {
@@ -103,9 +103,8 @@ fn main() {
                 }
             };
 
-            let new_data = Data::from_string(header_new_data);
-
-            match db.update(id, new_data) {
+            let new_data_value = DataValue::from_string(header_new_data);
+            match db.update(id, Data { value: new_data_value }) {
                 Ok(_) => {
                     request.respond(
                         Response::from_string("{ \"status\": \"ok\" }")

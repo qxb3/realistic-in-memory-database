@@ -3,14 +3,14 @@ use std::{collections::HashMap, fmt::Display};
 pub type Id = u64;
 
 #[derive(Debug)]
-pub enum Data {
+pub enum DataValue {
     String(String),
     Int(i64),
     Float(f64),
     Bool(bool),
 }
 
-impl Display for Data {
+impl Display for DataValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::String(value) => write!(f, "\"{}\"", value),
@@ -21,22 +21,27 @@ impl Display for Data {
     }
 }
 
-impl Data {
+impl DataValue {
     pub fn from_string(string: String) -> Self {
         if let Ok(value) = string.parse::<f64>() {
             if value.fract() == 0.0 {
-                return Data::Int(value as i64);
+                return Self::Int(value as i64);
             }
 
-            return Data::Float(value);
+            return Self::Float(value);
         }
 
         if let Ok(boolean) = string.parse::<bool>() {
-            return Data::Bool(boolean);
+            return Self::Bool(boolean);
         }
 
         Self::String(string)
     }
+}
+
+#[derive(Debug)]
+pub struct Data {
+    pub value: DataValue,
 }
 
 #[derive(Debug)]
