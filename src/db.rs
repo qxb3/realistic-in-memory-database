@@ -42,7 +42,7 @@ impl DataValue {
 #[derive(Debug)]
 pub struct Data {
     pub value: DataValue,
-    pub chance: u16,
+    pub chance: f32,
 }
 
 impl Data {
@@ -68,7 +68,7 @@ impl Db {
 
     pub fn create(&mut self, data: Data) {
         // Random chance that it forgots to even add.
-        if rand::random::<f32>() > 0.08 {
+        if rand::random::<f32>() > 0.9 {
             return;
         }
 
@@ -80,7 +80,7 @@ impl Db {
 
     pub fn read(&self, id: Id) -> Option<&Data> {
         // Random chance that it just forgots a bit but no completely?
-        if rand::random::<f32>() > 0.08 {
+        if rand::random::<f32>() > 0.9 {
             return None;
         }
 
@@ -88,6 +88,16 @@ impl Db {
         println!("READ = {:#?}", self.data);
 
         data
+    }
+
+    pub fn list(&self) -> Vec<(&Id, &Data)> {
+        let mut list = Vec::new();
+
+        for (id, data) in self.data.iter() {
+            list.push((id, data));
+        }
+
+        list
     }
 
     pub fn update(&mut self, id: Id, new_data: Data) -> Result<(), String> {
@@ -107,6 +117,23 @@ impl Db {
                 Ok(())
             },
             None => Err(format!("Cannot delete, There is no data with the id of: {id}"))
+        }
+    }
+
+    pub fn forget_random(&mut self) {
+        if self.data.len() <= 0 {
+            return;
+        }
+
+        let data_keys = self.data.keys().cloned().collect::<Vec<Id>>();
+
+        let random_index = rand::random_range(0..self.data.len());
+        let random_key = data_keys[random_index];
+        let random_data = self.data.get(&random_key).unwrap();
+
+        if rand::random::<f32>() > random_data.chance {
+            println!("deleted: {}", random_key);
+            self.data.remove(&random_key);
         }
     }
 }
