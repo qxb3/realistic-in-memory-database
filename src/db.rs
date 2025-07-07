@@ -44,6 +44,12 @@ pub struct Data {
     pub value: DataValue,
 }
 
+impl Data {
+    pub fn new(value: DataValue) -> Self {
+        Self { value }
+    }
+}
+
 #[derive(Debug)]
 pub struct Db {
     data: HashMap<Id, Data>,
@@ -52,23 +58,28 @@ pub struct Db {
 impl Db {
     pub fn new() -> Self {
         Self {
-            data: HashMap::new()
+            data: HashMap::new(),
         }
     }
 
-    pub fn create(&mut self, id: Id, data: Data) {
+    pub fn create(&mut self, data: Data) {
+        let id: Id = rand::random();
         self.data.insert(id, data);
-        println!("{:#?}", self.data);
+
+        println!("INSERT = {:#?}", self.data);
     }
 
     pub fn read(&self, id: Id) -> Option<&Data> {
-        self.data.get(&id)
+        let data = self.data.get(&id);
+        println!("READ = {:#?}", self.data);
+
+        data
     }
 
     pub fn update(&mut self, id: Id, new_data: Data) -> Result<(), String> {
         match self.data.insert(id, new_data) {
             Some(_) => {
-                println!("{:#?}", self.data);
+                println!("UPDATE = {:#?}", self.data);
                 Ok(())
             },
             None => Err(format!("Cannot update, There is no data with the id of: {id}"))
@@ -77,7 +88,10 @@ impl Db {
 
     pub fn delete(&mut self, id: Id) -> Result<(), String> {
         match self.data.remove(&id) {
-            Some(_) => Ok(()),
+            Some(_) => {
+                println!("DELETE = {:#?}", self.data);
+                Ok(())
+            },
             None => Err(format!("Cannot delete, There is no data with the id of: {id}"))
         }
     }
