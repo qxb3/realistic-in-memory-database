@@ -42,11 +42,15 @@ impl DataValue {
 #[derive(Debug)]
 pub struct Data {
     pub value: DataValue,
+    pub chance: u16,
 }
 
 impl Data {
     pub fn new(value: DataValue) -> Self {
-        Self { value }
+        Self {
+            value,
+            chance: rand::random(),
+        }
     }
 }
 
@@ -63,6 +67,11 @@ impl Db {
     }
 
     pub fn create(&mut self, data: Data) {
+        // Random chance that it forgots to even add.
+        if rand::random::<f32>() > 0.08 {
+            return;
+        }
+
         let id: Id = rand::random();
         self.data.insert(id, data);
 
@@ -70,6 +79,11 @@ impl Db {
     }
 
     pub fn read(&self, id: Id) -> Option<&Data> {
+        // Random chance that it just forgots a bit but no completely?
+        if rand::random::<f32>() > 0.08 {
+            return None;
+        }
+
         let data = self.data.get(&id);
         println!("READ = {:#?}", self.data);
 
