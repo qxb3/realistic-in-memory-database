@@ -3,7 +3,7 @@ mod db;
 use std::{sync::Arc, thread, time::Duration};
 
 use tiny_http::{Header, Method, Request, Response, Server};
-use tokio::{net::ToSocketAddrs, sync::Mutex};
+use tokio::sync::Mutex;
 
 use crate::db::{Data, DataValue, Db, Id};
 
