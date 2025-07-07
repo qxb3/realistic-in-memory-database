@@ -3,7 +3,7 @@ mod db;
 use std::{sync::Arc, thread, time::Duration};
 
 use tiny_http::{Header, Method, Request, Response, Server};
-use tokio::sync::Mutex;
+use tokio::{net::ToSocketAddrs, sync::Mutex};
 
 use crate::db::{Data, DataValue, Db, Id};
 
@@ -27,6 +27,17 @@ fn start_server(db: Arc<Mutex<Db>>) {
                 continue;
             }
         };
+
+        if *request.method() == Method::Options {
+            request.respond(
+                Response::empty(200)
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_header(Header::from_bytes("Access-Control-Allow-Methods", "*").unwrap())
+                    .with_header(Header::from_bytes("Access-Control-Allow-Headers", "*").unwrap())
+                ).unwrap();
+
+            continue;
+        }
 
         let db = Arc::clone(&db);
         tokio::spawn(async move {
@@ -52,12 +63,12 @@ async fn handle_request(request: Request, db: Arc<Mutex<Db>>) {
         return;
     }
 
-    match request.method() {
-        Method::Post => handle_create(request, db).await,
-        Method::Get => handle_read(request, db).await,
-        Method::Trace => handle_list(request, db).await,
-        Method::Patch => handle_update(request, db).await,
-        Method::Delete => handle_delete(request, db).await,
+    match request.method().as_str() {
+        "CREATE" => handle_create(request, db).await,
+        "READ" => handle_read(request, db).await,
+        "LIST" => handle_list(request, db).await,
+        "UPDATE" => handle_update(request, db).await,
+        "DELETE" => handle_delete(request, db).await,
         _ => {}
     }
 }
@@ -66,7 +77,12 @@ async fn handle_create(request: Request, db: Arc<Mutex<Db>>) {
     let header_data = match request.headers().iter().find(|h| h.field.as_str() == "Data") {
         Some(header_id) => header_id.value.to_string(),
         None => {
-            request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Header: Data is required\" }").with_status_code(400)).unwrap();
+            request.respond(
+                Response::from_string("{ \"status\": \"error\", \"message\": \"Header: Data is required\" }")
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_status_code(400)
+            ).unwrap();
+
             return;
         }
     };
@@ -79,6 +95,7 @@ async fn handle_create(request: Request, db: Arc<Mutex<Db>>) {
 
     request.respond(
         Response::from_string("{ \"status\": \"ok\" }")
+            .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
             .with_status_code(200)
     ).unwrap();
@@ -88,7 +105,12 @@ async fn handle_read(request: Request, db: Arc<Mutex<Db>>) {
     let header_id = match request.headers().iter().find(|h| h.field.as_str() == "Data-Id") {
         Some(header_id) => header_id.value.to_string(),
         None => {
-            request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Header: Data-Id is required\" }").with_status_code(400)).unwrap();
+            request.respond(
+                Response::from_string("{ \"status\": \"error\", \"message\": \"Header: Data-Id is required\" }")
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_status_code(400)
+            ).unwrap();
+
             return;
         }
     };
@@ -96,7 +118,12 @@ async fn handle_read(request: Request, db: Arc<Mutex<Db>>) {
     let id: Id = if let Ok(value) = header_id.parse::<u64>() {
         value
     } else {
-        request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Invalid Id\" }").with_status_code(400)).unwrap();
+        request.respond(
+            Response::from_string("{ \"status\": \"error\", \"message\": \"Invalid Id\" }")
+                .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                .with_status_code(400)
+        ).unwrap();
+
         return;
     };
 
@@ -104,15 +131,22 @@ async fn handle_read(request: Request, db: Arc<Mutex<Db>>) {
     let data = match db.read(id) {
         Some(data) => data,
         None => {
-            request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Cannot read data with that id\" }").with_status_code(400)).unwrap();
+            request.respond(
+                Response::from_string("{ \"status\": \"error\", \"message\": \"Cannot read data with that id\" }")
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_status_code(400)
+            ).unwrap();
+
             return;
         }
     };
 
     request.respond(
         Response::from_string(format!("{{ \"status\": \"ok\", \"data\": {} }}", data.value))
+            .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
             .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
             .with_status_code(200)
+
     ).unwrap();
 }
 
@@ -139,14 +173,25 @@ async fn handle_list(request: Request, db: Arc<Mutex<Db>>) {
 
     list.push(']');
 
-    request.respond(Response::from_string(list)).unwrap();
+    request.respond(
+        Response::from_string(list)
+            .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+            .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+            .with_status_code(200)
+    ).unwrap();
 }
 
 async fn handle_update(request: Request, db: Arc<Mutex<Db>>) {
     let header_id = match request.headers().iter().find(|h| h.field.as_str() == "Data-Id") {
         Some(header_id) => header_id.value.to_string(),
         None => {
-            request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Header: Data-Id is required\" }").with_status_code(400)).unwrap();
+            request.respond(
+                Response::from_string("{ \"status\": \"error\", \"message\": \"Header: Data-Id is required\" }")
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+                    .with_status_code(400)
+            ).unwrap();
+
             return;
         }
     };
@@ -154,14 +199,26 @@ async fn handle_update(request: Request, db: Arc<Mutex<Db>>) {
     let id: Id = if let Ok(value) = header_id.parse::<u64>() {
         value
     } else {
-        request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Invalid Id\" }").with_status_code(400)).unwrap();
+        request.respond(
+            Response::from_string("{ \"status\": \"error\", \"message\": \"Invalid Id\" }")
+                .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+                .with_status_code(400)
+        ).unwrap();
+
         return;
     };
 
     let header_new_data = match request.headers().iter().find(|h| h.field.as_str() == "New-Data") {
         Some(header_new_data) => header_new_data.value.to_string(),
         None => {
-            request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Header: New-Data is required\" }").with_status_code(400)).unwrap();
+            request.respond(
+                Response::from_string("{ \"status\": \"error\", \"message\": \"Header: New-Data is required\" }")
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+                    .with_status_code(400)
+            ).unwrap();
+
             return;
         }
     };
@@ -174,12 +231,18 @@ async fn handle_update(request: Request, db: Arc<Mutex<Db>>) {
         Ok(_) => {
             request.respond(
                 Response::from_string("{ \"status\": \"ok\" }")
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
                     .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
                     .with_status_code(200)
             ).unwrap();
         },
         Err(e) => {
-            request.respond(Response::from_string(e).with_status_code(400)).unwrap();
+            request.respond(
+                Response::from_string(e)
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+                    .with_status_code(400)
+            ).unwrap();
         }
     };
 }
@@ -188,7 +251,13 @@ async fn handle_delete(request: Request, db: Arc<Mutex<Db>>) {
     let header_id = match request.headers().iter().find(|h| h.field.as_str() == "Data-Id") {
         Some(header_id) => header_id.value.to_string(),
         None => {
-            request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Header: Data-Id is required\" }").with_status_code(400)).unwrap();
+            request.respond(
+                Response::from_string("{ \"status\": \"error\", \"message\": \"Header: Data-Id is required\" }")
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+                    .with_status_code(400)
+            ).unwrap();
+
             return;
         }
     };
@@ -196,7 +265,13 @@ async fn handle_delete(request: Request, db: Arc<Mutex<Db>>) {
     let id: Id = if let Ok(value) = header_id.parse::<u64>() {
         value
     } else {
-        request.respond(Response::from_string("{ \"status\": \"error\", \"message\": \"Invalid Id\" }").with_status_code(400)).unwrap();
+        request.respond(
+            Response::from_string("{ \"status\": \"error\", \"message\": \"Invalid Id\" }")
+                .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+                .with_status_code(400)
+        ).unwrap();
+
         return;
     };
 
@@ -205,12 +280,18 @@ async fn handle_delete(request: Request, db: Arc<Mutex<Db>>) {
         Ok(_) => {
             request.respond(
                 Response::from_string("{ \"status\": \"ok\" }")
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
                     .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
                     .with_status_code(200)
             ).unwrap();
         },
         Err(e) => {
-            request.respond(Response::from_string(e).with_status_code(400)).unwrap();
+            request.respond(
+                Response::from_string(e)
+                    .with_header(Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap())
+                    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+                    .with_status_code(400)
+            ).unwrap();
         }
     }
 }

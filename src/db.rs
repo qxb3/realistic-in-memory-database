@@ -13,7 +13,12 @@ pub enum DataValue {
 impl Display for DataValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::String(value) => write!(f, "\"{}\"", value),
+            Self::String(value) => write!(f, "\"{}\"", value
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', "\\n")
+                .replace('\r', "\\r")
+                .replace('\t', "\\t")),
             Self::Int(value) => write!(f, "{}", value),
             Self::Float(value) => write!(f, "{:.3}", value),
             Self::Bool(value) => write!(f, "{}", value),
